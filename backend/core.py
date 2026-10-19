@@ -215,7 +215,7 @@ async def registrar_saida(user, produto, quantidade, setor, leito=None, motivo="
 
 async def validar_leito(setor: dict, produto: dict, leito_id):
     if leito_id:
-        leito = await db.leitos.find_one({"id": leito_id, "setor_id": setor["id"]}, {"_id": 0})
+        leito = await db.leitos.find_one({"id": leito_id, "setor_id": setor["id"], "ativo": True}, {"_id": 0})
         if not leito:
             raise HTTPException(400, "Leito não pertence ao setor informado")
         return leito

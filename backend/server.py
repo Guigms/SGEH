@@ -129,6 +129,11 @@ class RecebimentoIn(BaseModel):
     itens: List[RecebItem]
 
 
+async def next_seq(name: str) -> int:
+    r = await db.counters.find_one_and_update({"_id": name}, {"$inc": {"seq": 1}}, upsert=True, return_document=True)
+    return r["seq"]
+
+
 async def get_produto(pid):
     p = await db.produtos.find_one({"id": pid}, {"_id": 0})
     if not p:
@@ -156,8 +161,11 @@ async def login(body: LoginIn, response: Response):
     email = body.email.strip().lower()
     ident = f"login:{email}"
     att = await db.login_attempts.find_one({"identifier": ident})
-    if att and att.get("count", 0) >= 5 and att.get("locked_until", "") > now_iso():
-        raise HTTPException(429, "Muitas tentativas. Aguarde 15 minutos.")
+    if att and att.get("count", 0) >= 5:
+        if att.get("locked_until", "") > now_iso():
+            raise HTTPException(429, "Muitas tentativas. Aguarde 15 minutos.")
+        await db.login_attempts.delete_one({"identifier": ident})
+        att = None
     user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user or not verify_password(body.password, user["password_hash"]):
         cnt = (att or {}).get("count", 0) + 1
@@ -524,7 +532,7 @@ async def create_solicitacao(body: SolicitacaoIn, user=Depends(require("solicita
         leito = await validar_leito(s, p, it.leito_id)
         itens.append({"produto_id": p["id"], "produto_descricao": p["descricao"], "categoria": p["categoria"], "unidade": p["unidade"],
                       "quantidade": it.quantidade, "leito_id": leito["id"] if leito else None, "leito_codigo": leito["codigo"] if leito else None})
-    num = await db.solicitacoes.count_documents({}) + 1
+    num = await next_seq("solicitacao")
     doc = {"id": new_id(), "numero": f"SOL-{num:05d}", "setor_id": s["id"], "setor_nome": s["nome"], "itens": itens,
            "observacao": body.observacao, "status": "pendente", "solicitante_id": user["id"], "solicitante_nome": user["nome"],
            "aprovador_nome": None, "atendente_nome": None, "motivo_rejeicao": "", "created_at": now_iso(), "historico": [
@@ -560,6 +568,8 @@ async def rejeitar_sol(sid: str, body: MotivoIn, user=Depends(require("aprovar_s
     s = await get_sol(sid)
     if s["status"] not in ("pendente", "aprovada"):
         raise HTTPException(400, "Solicitação não pode ser rejeitada")
+    if s["solicitante_id"] == user["id"]:
+        raise HTTPException(403, "Segregação de funções: use 'Cancelar' para sua própria solicitação")
     await db.solicitacoes.update_one({"id": sid}, {"$set": {"status": "rejeitada", "motivo_rejeicao": body.motivo},
                                                    "$push": {"historico": {"status": "rejeitada", "usuario": user["nome"], "data": now_iso()}}})
     await audit(user, "rejeitar_solicitacao", "solicitacao", sid, f"{s['numero']}: {body.motivo}")
@@ -585,14 +595,29 @@ async def atender_sol(sid: str, user=Depends(require("atender_solicitacao"))):
     if s["status"] != "aprovada":
         raise HTTPException(400, "Solicitação precisa estar aprovada")
     setor = await get_setor(s["setor_id"])
+    totais = {}
     for it in s["itens"]:
-        elig = await lotes_elegiveis(it["produto_id"])
-        if sum(lt["quantidade"] for lt in elig) < it["quantidade"]:
-            raise HTTPException(400, f"Saldo insuficiente para '{it['produto_descricao']}'")
-    for it in s["itens"]:
-        p = await get_produto(it["produto_id"])
-        leito = await db.leitos.find_one({"id": it["leito_id"]}, {"_id": 0}) if it.get("leito_id") else None
-        await registrar_saida(user, p, it["quantidade"], setor, leito, f"Atendimento {s['numero']}", s["numero"], s["id"])
+        totais[it["produto_id"]] = totais.get(it["produto_id"], 0) + it["quantidade"]
+    for pid, q in totais.items():
+        elig = await lotes_elegiveis(pid)
+        if sum(lt["quantidade"] for lt in elig) < q:
+            desc = next(i["produto_descricao"] for i in s["itens"] if i["produto_id"] == pid)
+            raise HTTPException(400, f"Saldo insuficiente para '{desc}'")
+    r = await db.solicitacoes.update_one({"id": sid, "status": "aprovada"}, {"$set": {"status": "atendendo"}})
+    if r.modified_count == 0:
+        raise HTTPException(409, "Solicitação já em atendimento")
+    feitos = []
+    try:
+        for it in s["itens"]:
+            p = await get_produto(it["produto_id"])
+            leito = await db.leitos.find_one({"id": it["leito_id"]}, {"_id": 0}) if it.get("leito_id") else None
+            feitos += await registrar_saida(user, p, it["quantidade"], setor, leito, f"Atendimento {s['numero']}", s["numero"], s["id"])
+    except HTTPException:
+        for m in feitos:
+            await db.lotes.update_one({"id": m["lote_id"]}, {"$inc": {"quantidade": m["quantidade"]}})
+            await db.movimentos.delete_one({"id": m["id"]})
+        await db.solicitacoes.update_one({"id": sid}, {"$set": {"status": "aprovada"}})
+        raise
     await db.solicitacoes.update_one({"id": sid}, {"$set": {"status": "atendida", "atendente_nome": user["nome"]},
                                                    "$push": {"historico": {"status": "atendida", "usuario": user["nome"], "data": now_iso()}}})
     await audit(user, "atender_solicitacao", "solicitacao", sid, f"{s['numero']} - saídas FEFO geradas")
@@ -634,7 +659,7 @@ async def create_compra(body: CompraIn, user=Depends(require("compra_criar"))):
         p = await get_produto(it.produto_id)
         itens.append({"produto_id": p["id"], "produto_descricao": p["descricao"], "unidade": p["unidade"],
                       "quantidade": it.quantidade, "preco_estimado": it.preco_estimado, "subtotal": round(it.quantidade * it.preco_estimado, 2)})
-    num = await db.compras.count_documents({}) + 1
+    num = await next_seq("compra")
     doc = {"id": new_id(), "numero": f"PC-{num:05d}", "fornecedor": body.fornecedor, "observacao": body.observacao, "itens": itens,
            "valor_total": round(sum(i["subtotal"] for i in itens), 2), "status": "pendente", "criado_por_id": user["id"],
            "criado_por_nome": user["nome"], "aprovador_nome": None, "recebido_por_nome": None, "nota_fiscal": "",
@@ -683,7 +708,18 @@ async def receber_compra(cid: str, body: RecebimentoIn, user=Depends(require("co
         raise HTTPException(400, "Informe a nota fiscal")
     if await db.compras.find_one({"nota_fiscal": body.nota_fiscal.strip(), "fornecedor": c["fornecedor"]}):
         raise HTTPException(400, "Nota fiscal já registrada para este fornecedor")
-    pids = {i["produto_id"] for i in c["itens"]}
+    if not body.itens:
+        raise HTTPException(400, "Informe os itens recebidos")
+    pedido_qtd = {}
+    for i in c["itens"]:
+        pedido_qtd[i["produto_id"]] = pedido_qtd.get(i["produto_id"], 0) + i["quantidade"]
+    receb_qtd = {}
+    for it in body.itens:
+        receb_qtd[it.produto_id] = receb_qtd.get(it.produto_id, 0) + it.quantidade
+    for pid, q in receb_qtd.items():
+        if q > pedido_qtd.get(pid, 0):
+            raise HTTPException(400, "Quantidade recebida maior que a pedida")
+    pids = set(pedido_qtd)
     for it in body.itens:
         check_validade(it.validade)
         if it.produto_id not in pids:

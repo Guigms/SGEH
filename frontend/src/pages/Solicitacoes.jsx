@@ -117,7 +117,8 @@ const Acoes = ({ s, user, onDone }) => {
   const run = async (acao, body) => {
     try {
       await api.post(`/solicitacoes/${s.id}/${acao}`, body);
-      toast.success(`Solicitação ${s.numero}: ${acao} ok`);
+      const msg = { aprovar: "aprovada", rejeitar: "rejeitada", cancelar: "cancelada", atender: "atendida (saídas FEFO geradas)" };
+      toast.success(`Solicitação ${s.numero} ${msg[acao]}`);
       onDone();
     } catch (e) {
       toast.error(errMsg(e));
@@ -133,7 +134,7 @@ const Acoes = ({ s, user, onDone }) => {
       {s.status === "pendente" && can(user, "aprovar_solicitacao") && s.solicitante_id !== user.id && (
         <button data-testid={`aprovar-sol-${s.numero}`} onClick={() => run("aprovar")} className={`${btn} bg-sky-600 text-white hover:bg-sky-700`}>Aprovar</button>
       )}
-      {["pendente", "aprovada"].includes(s.status) && can(user, "aprovar_solicitacao") && (
+      {["pendente", "aprovada"].includes(s.status) && can(user, "aprovar_solicitacao") && s.solicitante_id !== user.id && (
         <button data-testid={`rejeitar-sol-${s.numero}`} onClick={rejeitar} className={`${btn} border border-rose-300 text-rose-700 hover:bg-rose-50`}>Rejeitar</button>
       )}
       {s.status === "aprovada" && can(user, "atender_solicitacao") && (

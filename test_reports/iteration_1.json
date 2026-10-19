@@ -1,0 +1,48 @@
+{
+  "summary": "First full run of SGEH (hospital stock, pt-BR). Backend: 38/38 core pytest tests pass (auth for all 9 roles, RBAC, dashboard, entrada + weighted average cost, saída FEFO split/leito rules/insufficient stock, lote block/liberar/baixa, devolução íntegra/avariada/exceeds limit, solicitações rules by setor (Administrativo/CCIH 403, UTI needs leito), approve/reject/cancel/atender, compras full flow + segregation of duties + duplicate NF, auditoria filters, admin user/setor/leito). Edge suite: brute-force lockout works (5x401 then 429); one confirmed bug: 'atender' with duplicate product items commits partial saídas. Frontend: every requested flow tested through the UI with Playwright and all work: login + wrong-password error, sidebar filtered per role, dashboard KPIs/bands/charts, Saída with FEFO preview + leito, Lotes FEFO badge/filters/block/liberar/baixa, Entrada (expired date rejected), Devolução, Solicitações (Administrativo sees only escritório/higiene, others disabled with an alert; UTI leito enforced; gestor approves, estoquista atende), Compras (comprador creates, creator has no approve button, gestor approves, estoquista receives with NF/lote/validade), Auditoria movimentos/logs filters, Admin (create user, edit setor categories, add leito). Mobile 390px: no horizontal overflow.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/solicitacoes/{id}/atender", "issue": "Not atomic. The stock pre-check runs per item and does not add up quantities when the same product appears in more than one item (and item creation allows duplicates). Reproduced: UTI requested HIG-002 180+180 with 300 available. Atender returned 400 'Saldo disponível insuficiente', but the first 180 had already been deducted (saída movimentos created) while the solicitação stayed 'aprovada'. Any later item failing has the same effect.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/login", "issue": "After the 15-min lock expires, count stays >=5, so the next single wrong password locks the account again right away. Reset count when locked_until has passed."},
+      {"endpoint": "POST /api/solicitacoes, POST /api/compras", "issue": "Numbers (SOL-/PC-) come from count_documents()+1. Concurrent creates can get duplicate numbers. Use an atomic counter collection ($inc)."},
+      {"endpoint": "POST /api/compras/{id}/receber", "issue": "Accepts an empty itens list (order marked 'recebido' with no stock entries). Received quantity/products are not checked against the order (can receive more than ordered, or skip items)."},
+      {"endpoint": "POST /api/solicitacoes/{id}/rejeitar, POST /api/compras/{id}/rejeitar", "issue": "No segregation check: the requester (gestor/farmacêutico) can reject their own request. Approved compras cannot be cancelled at all (no endpoint)."},
+      {"endpoint": "POST /api/saidas / validar_leito", "issue": "Does not check leito.ativo, so an inactive leito still works through the API. atender_sol does not re-check setor categorias_permitidas, which may have changed since the request was created."},
+      {"endpoint": "CORS", "issue": "CORS_ORIGINS='*' together with allow_credentials=True. Use explicit origins (playbook)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Solicitações atender toast", "issue": "Toast reads 'Solicitação SOL-00008: atender ok', a raw verb. Should be e.g. 'Solicitação SOL-00008 atendida (saídas FEFO geradas)'.", "selector": "[data-sonner-toast]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Entrada / Compras receber / Auditoria", "issues": ["Uses the browser's native <input type=date> instead of the shadcn Calendar/DatePicker"]},
+      {"screen": "Lotes (mobile 390px)", "issues": ["Search input sits indented about 40px from the left edge under the filter chips, not aligned with the content"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_sgeh_api.py", "/app/backend/tests/test_sgeh_edge.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix atender_sol: add up requested quantities per produto_id before the balance check (or merge duplicate products at creation), and roll back saídas already made if a later item fails",
+    "Reset login_attempts count when the lock has expired",
+    "Use an atomic counter for SOL/PC numbering",
+    "Validate the receber payload: itens not empty, products/quantities match the order",
+    "Optional: segregation check on reject, check leito.ativo in validar_leito, explicit CORS origins, better pt-BR text for the atender toast"
+  ],
+  "critical_code_review_comments": [
+    "server.py has 794 lines (>700): split routers (auth, estoque, solicitacoes, compras, dashboard)",
+    "The JWT is stored in localStorage (sgeh_token) as well as the httpOnly cookie, which exposes it to XSS. Consider relying on the cookie only.",
+    "dashboard/produtos_com_saldo load every lote and do an O(n*m) Python filter. Fine for an MVP but should be an aggregation for scale.",
+    "Mongo multi-document ops (saída/devolução/receber) are not transactional, so partial writes are possible on failure"
+  ],
+  "updated_files": ["/app/backend/tests/test_sgeh_api.py", "/app/backend/tests/test_sgeh_edge.py"],
+  "success_rate": {"backend": "97% (39/40 incl. edge cases; 1 real bug)", "frontend": "100% of requested flows working"},
+  "test_credentials": "From /app/memory/test_credentials.md: admin gms.saldanha@outlook.com / Admin@2026; seeded users Senha@123. bcrypt hashes start with $2b$; httpOnly cookie set on login; lockout after 5 failed logins verified.",
+  "seed_data_creation": "Created TEST_ products/lots/users/leitos and later deleted them via mongo. Left in place: test solicitações SOL-00001..08 (statuses final), compras PC-00001..05 with TEST_ fornecedores (approved ones set to rejeitado), extra ESC-002 lots TEST_L*/TEST_UI_LOT (received via compras), a few real saídas of seeded products (Seringa, Dipirona) and devoluções. The HIG-002 stock lost to the partial-atender bug was restored with a devolução.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with '-n 0' (pytest.ini enables xdist and the tests depend on shared order/state): REACT_APP_BACKEND_URL=... pytest /app/backend/tests -n 0. test_sgeh_edge.py::test_atender_duplicate_items_partial fails until the atender bug is fixed, and it deducts stock when it fails (the cleanup step rejects the solicitação but does not restore stock). Frontend: native selects (select_option), Compras fornecedor input only appears after adding an item, rejeitar uses window.prompt.",
+  "rca of the issue": "atender_sol (server.py ~L588) checks each item's quantity against lotes_elegiveis separately, so two items of the same product each pass. It then calls registrar_saida per item; the second call's fefo_alocar raises 400 after the first item's lot decrements and movimentos insert are already committed. The solicitação status update never runs. Repro: as a UTI user create a solicitação with 2 items of the same product, each 60% of available; gestor approves; estoquista atende -> 400, and saldo drops by 60%. Fix: build a dict of total qty per produto_id for the pre-check, and wrap the item loop so that on failure the lots are restored and the movimentos deleted (or use a Mongo transaction)."
+}
