@@ -1,0 +1,226 @@
+{
+  "project_name": "Sistema de Gestão de Estoque Hospitalar (SGEH - Hospital Público)",
+  "app_type": "dashboard / saas_app",
+  "language": "pt-BR",
+  "design_identity": {
+    "archetype": "ORGANIC & CLINICAL PRECISION (Trust, Tactical Density & High Usability)",
+    "persona_notes": "E1 Anti-AI Designer approach: Clean medical UI without boring boilerplate blue. High contrast data density, clear visual feedback for critical expiration alerts (FEFO), bed-level material assignment (vínculo com leito e setor em hospital público), and role-based category restrictions.",
+    "theme_mode": "light_mode_default_with_dark_toggle",
+    "forbidden_colors": ["#1B93A4", "#7351B7"],
+    "forbidden_fonts": ["Space Grotesk", "Inter for main titles"]
+  },
+  "typography": {
+    "heading_font": "Outfit / Plus Jakarta Sans",
+    "body_font": "DM Sans / IBM Plex Sans",
+    "mono_font": "JetBrains Mono (for Lote, EAN, Barcodes, Financial values R$)",
+    "scale": {
+      "h1": "text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100",
+      "h2": "text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100",
+      "h3": "text-lg font-semibold text-slate-800 dark:text-slate-200",
+      "h4": "text-base font-medium text-slate-700 dark:text-slate-300",
+      "body": "text-sm text-slate-600 dark:text-slate-400 leading-relaxed",
+      "small": "text-xs text-slate-5-0 font-medium",
+      "badge": "font-mono text-xs font-semibold uppercase tracking-wider"
+    }
+  },
+  "colors": {
+    "primary": {
+      "main": "#0284C7",
+      "hover": "#0369A1",
+      "light": "#E0F2FE",
+      "dark": "#075985"
+    },
+    "clinical_emerald": {
+      "main": "#059669",
+      "light": "#D1FAE5",
+      "border": "#A7F3D0"
+    },
+    "status": {
+      "expired_critical": {
+        "bg": "#FEF2F2",
+        "text": "#991B1B",
+        "border": "#FCA5A5",
+        "badge": "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300"
+      },
+      "risk_30_days": {
+        "bg": "#FFFBEB",
+        "text": "#92400E",
+        "border": "#FDE68A",
+        "badge": "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300"
+      },
+      "risk_60_90_days": {
+        "bg": "#EFF6FF",
+        "text": "#1E40AF",
+        "border": "#BFDBFE",
+        "badge": "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300"
+      },
+      "stock_low": {
+        "bg": "#FFF7ED",
+        "text": "#C2410C",
+        "badge": "bg-orange-100 text-orange-800 border-orange-300"
+      },
+      "normal": {
+        "bg": "#F0FDF4",
+        "text": "#166534",
+        "badge": "bg-emerald-100 text-emerald-800 border-emerald-300"
+      }
+    },
+    "surfaces": {
+      "dashboard_bg": "#F8FAFC",
+      "card_bg": "#FFFFFF",
+      "card_border": "#E2E8F0",
+      "table_header": "#F1F5F9",
+      "table_row_hover": "#F8FAFC"
+    }
+  },
+  "layout_and_architecture": {
+    "navigation_structure": [
+      {
+        "id": "dashboard",
+        "label": "Painel de Controle (Dashboard)",
+        "icon": "LayoutDashboard",
+        "path": "/"
+      },
+      {
+        "id": "saida_material",
+        "label": "Saída / Dispensação (Setor + Leito)",
+        "icon": "PackageOutput",
+        "path": "/saida"
+      },
+      {
+        "id": "solicitacoes",
+        "label": "Solicitações por Setor",
+        "icon": "ClipboardList",
+        "path": "/solicitacoes"
+      },
+      {
+        "id": "entrada_lotes",
+        "label": "Entrada & FEFO (Lotes)",
+        "icon": "PackageInput",
+        "path": "/entrada"
+      },
+      {
+        "id": "devolucao",
+        "label": "Devolução de Materiais",
+        "icon": "RotateCcw",
+        "path": "/devolucao"
+      },
+      {
+        "id": "compras",
+        "label": "Compras & Recomposição",
+        "icon": "ShoppingCart",
+        "path": "/compras"
+      },
+      {
+        "id": "auditoria",
+        "label": "Auditoria & Rastreabilidade",
+        "icon": "ShieldCheck",
+        "path": "/auditoria"
+      },
+      {
+        "id": "produtos_cat",
+        "label": "Cadastro de Produtos",
+        "icon": "Boxes",
+        "path": "/produtos"
+      },
+      {
+        "id": "configuracoes",
+        "label": "Administração & Leitos",
+        "icon": "Settings",
+        "path": "/admin"
+      }
+    ],
+    "role_based_profiles": [
+      {
+        "role": "ADMIN",
+        "label": "Administrador Geral (Farmácia Central)",
+        "permissions": "Acesso total, aprovação de compras, gerenciamento de setores, perfis e leitos."
+      },
+      {
+        "role": "FARMACEUTICO",
+        "label": "Farmacêutico Responsável / Almoxarife",
+        "permissions": "Entrada de lotes, validação FEFO, aprovação de medicamentos/insumos médicos e solicitações."
+      },
+      {
+        "role": "ENFERMAGEM_UTI",
+        "label": "Enfermagem Assistencial / UTI",
+        "permissions": "Saída de material vinculada ao leito, solicitação de medicamentos e insumos assistenciais, devolução."
+      },
+      {
+        "role": "CCIH",
+        "label": "CCIH (Controle de Infecção)",
+        "permissions": "Solicitação apenas de EPIs, saneantes, álcool gel, sabonetes e antissépticos. Bloqueado para medicamentos."
+      },
+      {
+        "role": "ADMINISTRATIVO",
+        "label": "Setor Administrativo",
+        "permissions": "Solicitação estrita de materiais de escritório, papelaria, higienização básica. Bloqueado para assistência e remédios."
+      }
+    ]
+  },
+  "key_features_to_implement": {
+    "fefo_engine": "First Expired, First Out - O sistema deve sugerir automaticamente o LOTE com menor data de validade na saída/dispensação.",
+    "leito_vinculacao": "Obrigatório para materiais de assistência pública no momento da saída (Ex: Leito 104 - UTI Adulto).",
+    "indicadores_risco": "KPIs em tempo real de Valor Total em Estoque (R$), Lotes em Risco (Vencidos, 30, 60 e 90 dias) e Valor Financeiro em Risco.",
+    "solicitacao_restrita": "Validação dinâmica onde a categoria do item solicitado deve ser permitida pelo setor da conta do usuário.",
+    "devolucao_rastreada": "Busca pelo ID do comprovante de saída com opção de reentrada de lote intacto ou descarte por avaria.",
+    "auditoria_completa": "Tabela com filtros de data, usuário, setor, leito, tipo de ação e lote para conformidade de hospital público."
+  },
+  "image_urls": {
+    "pharmacy_stock_shelf": "https://images.pexels.com/photos/9629685/pexels-photo-9629685.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "medical_dispenser": "https://images.pexels.com/photos/6129587/pexels-photo-6129587.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+  },
+  "data_testid_convention": {
+    "nav_items": "data-testid='nav-item-{id}'",
+    "role_selector": "data-testid='user-role-selector'",
+    "kpi_cards": {
+      "valor_total": "data-testid='kpi-valor-total-estoque'",
+      "lotes_risco": "data-testid='kpi-lotes-em-risco'",
+      "valor_risco": "data-testid='kpi-valor-lotes-risco'",
+      "itens_minimo": "data-testid='kpi-itens-abaixo-minimo'",
+      "solicitacoes_pendentes": "data-testid='kpi-solicitacoes-pendentes'"
+    },
+    "saida_form": {
+      "setor_select": "data-testid='saida-setor-select'",
+      "leito_select": "data-testid='saida-leito-select'",
+      "produto_select": "data-testid='saida-produto-select'",
+      "lote_fefo_badge": "data-testid='saida-lote-fefo-sugerido'",
+      "quantidade_input": "data-testid='saida-quantidade-input'",
+      "submit_btn": "data-testid='saida-confirmar-button'"
+    },
+    "solicitacao_form": {
+      "item_select": "data-testid='solicitacao-item-select'",
+      "quantidade_input": "data-testid='solicitacao-qtd-input'",
+      "submit_btn": "data-testid='solicitacao-enviar-button'",
+      "restricted_warning": "data-testid='solicitacao-categoria-bloqueada-alerta'"
+    },
+    "entrada_form": {
+      "produto_select": "data-testid='entrada-produto-select'",
+      "lote_code": "data-testid='entrada-lote-input'",
+      "validade_date": "data-testid='entrada-validade-input'",
+      "custo_unitario": "data-testid='entrada-custo-input'",
+      "submit_btn": "data-testid='entrada-salvar-button'"
+    },
+    "tables": {
+      "fefo_table": "data-testid='table-lotes-fefo'",
+      "auditoria_table": "data-testid='table-auditoria-logs'",
+      "solicitacoes_table": "data-testid='table-solicitacoes-setor'"
+    }
+  },
+  "instructions_to_main_agent": [
+    "1. Ensure full Portuguese (pt-BR) UI terminology across all screens, charts, badges, and notifications.",
+    "2. Implement responsive and high-density dashboard layouts using clean Tailwind CSS cards with 1px subtle borders (border-slate-200 dark:border-slate-800).",
+    "3. Use Sonner (`sonner` package) for all toast notifications (ex: 'Saída realizada com sucesso via Lote FEFO #LOT-2026-09').",
+    "4. Use Recharts for dashboard analytics (Consumo mensal por setor, Distribuição de valor em estoque por categoria, Lotes por faixa de vencimento).",
+    "5. Include a quick Role Switcher header bar (Admin, Farmácia, Enfermagem UTI, CCIH, Administrativo) so reviewers can easily test category restriction rules and role-based views.",
+    "6. Make sure all interactive buttons and inputs have proper data-testid attributes according to convention.",
+    "7. Handle bed (leito) selection gracefully — when dispensing for medical sectors, requiring a valid public hospital bed tag (e.g. 'Leito 102 - UTI 1' or 'Leito 205 - Enfermaria B')."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "depth_and_layers": "Use crisp layered cards with subtle borders and shadows rather than pure white flat elements.",
+    "no_universal_transition": "Do not apply transition-all globally to avoid layout glitches.",
+    "no_center_app": "Never set text-align: center on root container.",
+    "no_ai_emojis": "Use Lucide React icons instead of raw emojis for UI badges and buttons.",
+    "data_testid_mandatory": "Ensure every form field, action button, metric card, and navigation link includes data-testid."
+  }
+}

@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: "IBM Plex Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #F8FAFC;
+}
+h1, h2, h3, .font-display { font-family: "Outfit", sans-serif; }
+.font-mono, code { font-family: "JetBrains Mono", monospace; }
+
+.field {
+    @apply h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800 transition-colors focus:border-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100;
+}
+.lbl { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500; }
+.card { @apply rounded-xl border border-slate-200 bg-white; }
+.tbl { @apply w-full text-sm; }
+.tbl thead th { @apply bg-slate-100 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500; }
+.tbl tbody td { @apply border-t border-slate-100 px-3 py-2.5 text-slate-700; }
+.tbl tbody tr { @apply transition-colors hover:bg-sky-50/40; }
+
+.fade-up { animation: fadeUp .4s ease-out both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@layer base {
+    :root {
+        --background: 210 40% 98%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 200 98% 39%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 210 40% 96%;
+        --secondary-foreground: 222 47% 11%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 204 94% 94%;
+        --accent-foreground: 201 90% 27%;
+        --destructive: 0 72% 51%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 200 98% 39%;
+        --radius: 0.5rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body { @apply bg-background text-foreground; }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit; margin-right: inherit; margin-top: inherit; margin-bottom: inherit;
+        padding-left: inherit; padding-right: inherit; padding-top: inherit; padding-bottom: inherit;
+        column-gap: inherit; row-gap: inherit; gap: inherit;
+        border-left-width: inherit; border-right-width: inherit; border-top-width: inherit; border-bottom-width: inherit;
+        border-left-style: inherit; border-right-style: inherit; border-top-style: inherit; border-bottom-style: inherit;
+        border-left-color: inherit; border-right-color: inherit; border-top-color: inherit; border-bottom-color: inherit;
+    }
+}
